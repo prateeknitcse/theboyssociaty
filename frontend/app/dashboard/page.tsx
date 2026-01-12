@@ -1,117 +1,145 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-
-/* 🔐 Logged-in user (mock) */
-const currentUser = {
-  id: "u2",
-  name: "Amit",
-};
-
-/* 🎂 Birthday person */
-const birthdayPerson = {
-  id: "u1",
-  name: "Rahul",
-};
-
-/* 👥 Group members & payment status */
-const members = [
-  { id: "u1", name: "Rahul", paid: false },
-  { id: "u2", name: "Amit", paid: true },
-  { id: "u3", name: "Rohit", paid: false },
-  { id: "u4", name: "Suresh", paid: true },
-];
+import {
+  getTodaysBirthday,
+  getContributions,
+  payContribution,
+} from "@/lib/api";
 
 export default function DashboardPage() {
-  const [payments, setPayments] = useState(members);
+  const [birthday, setBirthday] = useState<any>(null);
+  const [contributions, setContributions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
 
-  const handlePay = () => {
-    setPayments((prev) =>
-      prev.map((m) =>
-        m.id === currentUser.id ? { ...m, paid: true } : m
-      )
-    );
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const data = await getTodaysBirthday();
+
+        if (data.hidden) {
+          setBirthday(null);
+          setLoading(false);
+          return;
+        }
+
+        setBirthday(data.birthday);
+
+        const contribs = await getContributions(
+          data.birthday._id
+        );
+        setContributions(contribs);
+      } catch (err) {
+        console.log("No birthday today");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const handlePay = async () => {
+    if (!birthday) return;
+
+    try {
+      setPaying(true);
+      await payContribution(
+        birthday._id,
+        birthday.contributionAmount
+      );
+
+      const updated = await getContributions(
+        birthday._id
+      );
+      setContributions(updated);
+    } finally {
+      setPaying(false);
+    }
   };
 
-  const isBirthdayBoy = currentUser.id === birthdayPerson.id;
-  const hasPaid = payments.find(
-    (m) => m.id === currentUser.id
-  )?.paid;
+  if (loading) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-gray-400">
+        Loading dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* Header */}
         <motion.h1
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-4xl font-bold mb-10"
         >
-          Welcome, {currentUser.name} 👋
+          Dashboard
         </motion.h1>
 
-        {/* 🎂 Birthday Card (Hidden for Birthday Boy) */}
-        {!isBirthdayBoy && (
+        {/* 🎂 Birthday Card */}
+        {birthday && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="glass p-6 mb-10"
           >
             <h2 className="text-2xl font-semibold mb-2">
-              🎉 {birthdayPerson.name}’s Birthday
+              🎉 {birthday.user.name}’s Birthday
             </h2>
             <p className="text-gray-300 mb-4">
-              Contribution Amount: ₹100
+              Contribution Amount: ₹
+              {birthday.contributionAmount}
             </p>
 
-            {/* Pay Button or Paid Tick */}
-            {!hasPaid ? (
-              <button
-                onClick={handlePay}
-                className="px-6 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 font-semibold"
-              >
-                Pay ₹100
-              </button>
-            ) : (
-              <span className="text-green-400 font-semibold">
-                ✔ You have paid
-              </span>
-            )}
+            <button
+              onClick={handlePay}
+              disabled={paying}
+              className="px-6 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 font-semibold disabled:opacity-50"
+            >
+              {paying ? "Processing..." : "Pay Now"}
+            </button>
           </motion.div>
         )}
 
-        {/* 👥 Payment Status List */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="glass p-6"
-        >
-          <h3 className="text-xl font-semibold mb-4">
-            Birthday Contributions
-          </h3>
+        {/* 👥 Contributions List */}
+        {birthday && (
+          <div className="glass p-6">
+            <h3 className="text-xl font-semibold mb-4">
+              Contributions
+            </h3>
 
-          <ul className="space-y-3">
-            {payments.map((member) => (
-              <li
-                key={member.id}
-                className="flex justify-between items-center border-b border-gray-700 pb-2"
-              >
-                <span>{member.name}</span>
-
-                {member.paid ? (
-                  <span className="text-green-400">✔ Paid</span>
-                ) : member.id === birthdayPerson.id ? (
-                  <span className="text-gray-500">
-                    Birthday Boy 🎂
+            <ul className="space-y-3">
+              {contributions.map((c) => (
+                <li
+                  key={c._id}
+                  className="flex justify-between items-center border-b border-gray-700 pb-2"
+                >
+                  <span>{c.user.name}</span>
+                  <span
+                    className={
+                      c.status === "paid"
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }
+                  >
+                    {c.status === "paid"
+                      ? "✔ Paid"
+                      : "✖ Not Paid"}
                   </span>
-                ) : (
-                  <span className="text-red-400">✖ Not Paid</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </motion.div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!birthday && (
+          <p className="text-gray-400">
+            No birthday contribution for you today 🎈
+          </p>
+        )}
       </div>
     </div>
   );
