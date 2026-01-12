@@ -5,6 +5,7 @@ import cors from "cors";
 
 import birthdayRoutes from "./routes/birthday.routes.js";
 import contributionRoutes from "./routes/contribution.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 dotenv.config();
 
@@ -29,6 +30,8 @@ app.use((req, res, next) => {
 /* ROUTES */
 app.use("/api/birthday", birthdayRoutes);
 app.use("/api/contribution", contributionRoutes);
+app.use("/api/admin", adminRoutes);
+
 
 /* DB + SERVER */
 mongoose
