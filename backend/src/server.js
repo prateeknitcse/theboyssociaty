@@ -33,6 +33,8 @@ app.use("/api/birthday", birthdayRoutes);
 app.use("/api/contribution", contributionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/payment", paymentRoutes);
+
 
 
 /* DB + SERVER */

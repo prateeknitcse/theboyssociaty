@@ -1,12 +1,23 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { isLoggedIn } from "@/lib/auth";
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { fetchTodayBirthday } from "@/lib/api";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // 🔐 ROUTE PROTECTION (ONLY CHANGE)
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.push("/login");
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -18,20 +29,49 @@ export default function DashboardPage() {
   }, []);
 
   const handlePayNow = async () => {
-    await fetch("http://localhost:5000/api/contribution/pay", {
+  const orderRes = await fetch(
+    "http://localhost:5000/api/payment/create-order",
+    {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
-      body: JSON.stringify({
-        birthdayId: data.birthdayId,
-        amount: data.birthday.amount,
-      }),
-    });
+      body: JSON.stringify({ amount: data.birthday.amount }),
+    }
+  );
 
-    window.location.reload();
+  const order = await orderRes.json();
+
+  const options = {
+    key: "YOUR_RAZORPAY_KEY_ID",
+    amount: order.amount,
+    currency: "INR",
+    name: "Boys Society",
+    order_id: order.id,
+    handler: async () => {
+      await fetch(
+        "http://localhost:5000/api/contribution/pay",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            birthdayId: data.birthdayId,
+            amount: data.birthday.amount,
+          }),
+        }
+      );
+      window.location.reload();
+    },
   };
+
+  // @ts-ignore
+  new window.Razorpay(options).open();
+};
+
 
   if (loading) {
     return (
